@@ -57,7 +57,7 @@ st.markdown(
 # ---------------------- Sidebar ----------------------
 with st.sidebar:
     st.header("⚙️ Settings")
-    role = st.radio("I am a:", list(config.ROLE_DOC_TYPES.keys()))
+    role = st.radio("I am a:", list(config.ROLE_AUDIENCE.keys()))
     top_k = st.slider(
         "Sources to retrieve",
         min_value=3, max_value=10, value=config.DEFAULT_TOP_K,
