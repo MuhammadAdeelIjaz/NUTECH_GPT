@@ -73,6 +73,13 @@ with st.sidebar:
             st.session_state.pending_query = q
 
     st.divider()
+    audience = config.ROLE_AUDIENCE[role]
+    available_docs = retriever.list_documents(audience=audience)
+    with st.expander(f"📚 Documents you can ask about ({len(available_docs)})"):
+        for fname, _ in available_docs:
+            st.markdown(f"- {fname}")
+
+    st.divider()
     if st.button("🗑️ Clear conversation", use_container_width=True):
         st.session_state.history = []
         st.rerun()
@@ -94,12 +101,13 @@ def render_sources(chunks):
     when redrawing chat history, so sources persist across reruns."""
     for i, c in enumerate(chunks, start=1):
         page_info = f" · page {c['page']}" if c.get("page") else ""
+        audience_label = "/".join(c.get("audience", []))
         confidence = max(0.0, min(1.0, c["score"]))
         st.markdown(
             f"""
             <div class="source-card">
                 <span class="fname">[{i}] {c['source_file']}</span>
-                <span class="meta">{page_info} · {c['doc_type']}</span>
+                <span class="meta">{page_info} · {audience_label}</span>
             </div>
             """,
             unsafe_allow_html=True,
@@ -113,9 +121,8 @@ def process_query(query: str):
     after the next Streamlit rerun instead of vanishing."""
     st.session_state.history.append({"role": "user", "content": query})
 
-    doc_types = config.ROLE_DOC_TYPES[role]
     with st.spinner("Searching indexed documents..."):
-        chunks = retriever.search(query, top_k=top_k, doc_types=doc_types)
+        chunks = retriever.search(query, top_k=top_k, audience=config.ROLE_AUDIENCE[role])
 
     if not chunks:
         answer = (
