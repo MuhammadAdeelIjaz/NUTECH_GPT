@@ -88,7 +88,67 @@ if "history" not in st.session_state:
 if "pending_query" not in st.session_state:
     st.session_state.pending_query = None
 
-# ---------------------- Chat history ----------------------
+
+def render_sources(chunks):
+    """Renders the source cards. Called both right after generation and
+    when redrawing chat history, so sources persist across reruns."""
+    for i, c in enumerate(chunks, start=1):
+        page_info = f" · page {c['page']}" if c.get("page") else ""
+        confidence = max(0.0, min(1.0, c["score"]))
+        st.markdown(
+            f"""
+            <div class="source-card">
+                <span class="fname">[{i}] {c['source_file']}</span>
+                <span class="meta">{page_info} · {c['doc_type']}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.progress(confidence, text=f"Relevance: {confidence:.0%}")
+
+
+def process_query(query: str):
+    """Runs retrieval + generation and appends BOTH turns to history,
+    including the retrieved chunks — this is what makes sources persist
+    after the next Streamlit rerun instead of vanishing."""
+    st.session_state.history.append({"role": "user", "content": query})
+
+    doc_types = config.ROLE_DOC_TYPES[role]
+    with st.spinner("Searching indexed documents..."):
+        chunks = retriever.search(query, top_k=top_k, doc_types=doc_types)
+
+    if not chunks:
+        answer = (
+            "I couldn't find anything relevant to this question in the "
+            "documents available to your role."
+        )
+        elapsed = None
+    else:
+        start = time.time()
+        with st.spinner("Generating answer..."):
+            answer = generate_answer(query, chunks, role)
+        elapsed = time.time() - start
+
+    st.session_state.history.append({
+        "role": "assistant",
+        "content": answer,
+        "sources": chunks,      # <- persisted, not just shown once
+        "elapsed": elapsed,
+    })
+
+
+# ---------------------- Handle new input BEFORE drawing history ----------------------
+incoming_query = st.session_state.pending_query
+st.session_state.pending_query = None
+
+typed_query = st.chat_input("Ask a question...")
+if typed_query:
+    incoming_query = typed_query
+
+if incoming_query:
+    process_query(incoming_query)
+
+# ---------------------- Draw full chat history (always, from state) ----------------------
 if not st.session_state.history:
     st.info(
         f"👋 Welcome! Ask a question below, or try one of the suggestions "
@@ -99,57 +159,9 @@ for msg in st.session_state.history:
     avatar = "🧑" if msg["role"] == "user" else "🎓"
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
-
-
-def handle_query(query: str):
-    st.session_state.history.append({"role": "user", "content": query})
-    with st.chat_message("user", avatar="🧑"):
-        st.markdown(query)
-
-    doc_types = config.ROLE_DOC_TYPES[role]
-
-    with st.chat_message("assistant", avatar="🎓"):
-        start = time.time()
-        with st.spinner("Searching indexed documents..."):
-            chunks = retriever.search(query, top_k=top_k, doc_types=doc_types)
-
-        if not chunks:
-            answer = (
-                "I couldn't find anything relevant to this question in the "
-                "documents available to your role."
-            )
-            st.markdown(answer)
-        else:
-            with st.spinner("Generating answer..."):
-                answer = generate_answer(query, chunks, role)
-            elapsed = time.time() - start
-            st.markdown(answer)
-            st.caption(f"⏱ Answered in {elapsed:.1f}s using {len(chunks)} sources")
-
-            with st.expander(f"📄 Sources ({len(chunks)})", expanded=False):
-                for i, c in enumerate(chunks, start=1):
-                    page_info = f" · page {c['page']}" if c.get("page") else ""
-                    confidence = max(0.0, min(1.0, c["score"]))
-                    st.markdown(
-                        f"""
-                        <div class="source-card">
-                            <span class="fname">[{i}] {c['source_file']}</span>
-                            <span class="meta">{page_info} · {c['doc_type']}</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    st.progress(confidence, text=f"Relevance: {confidence:.0%}")
-
-    st.session_state.history.append({"role": "assistant", "content": answer})
-
-
-# ---------------------- Input handling ----------------------
-query = st.chat_input("Ask a question...")
-
-if st.session_state.pending_query:
-    handle_query(st.session_state.pending_query)
-    st.session_state.pending_query = None
-    st.rerun()
-elif query:
-    handle_query(query)
+        sources = msg.get("sources")
+        if sources:
+            if msg.get("elapsed") is not None:
+                st.caption(f"⏱ Answered in {msg['elapsed']:.1f}s using {len(sources)} sources")
+            with st.expander(f"📄 Sources ({len(sources)})", expanded=False):
+                render_sources(sources)
