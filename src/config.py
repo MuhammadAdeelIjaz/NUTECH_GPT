@@ -5,14 +5,18 @@ APP_SUBTITLE = "Your academic knowledge assistant & policy advisor"
 
 SUGGESTED_QUESTIONS = {
     "Student": [
-        "What is the attendance policy?",
-        "How is the CGPA calculated?",
-        "What are the requirements to graduate?",
+        "What is the hostel policy and what are the current hostel charges?",
+        "What support is available for students with disabilities?",
+        "What are the rules on organizing a club or society?",
+        "What is the discipline policy for engineering students?",
+        "Can I pay my semester/hostel fee in installments?",
     ],
     "Staff / Faculty": [
-        "What is the leave policy for faculty?",
-        "What is the process for course approval?",
-        "What are the promotion criteria?",
+        "What is the faculty leave policy?",
+        "What is the internal employment policy?",
+        "How does the Research Publication Award Policy work?",
+        "What does the HR policy say about [topic]?",
+        "What is covered under the NUTECH Act?",
     ],
 }
 
@@ -31,8 +35,10 @@ GROQ_MODEL_NAME = "openai/gpt-oss-120b"
 # ---- Retrieval defaults ----
 DEFAULT_TOP_K = 5
 
-# ---- Role -> which doc_type(s) from metadata that role is allowed to retrieve ----
-ROLE_DOC_TYPES = {
-    "Student": ["academic"],
-    "Staff / Faculty": ["academic", "policy"],
+# ---- Role -> which audience tag (from metadata) that role is allowed to retrieve ----
+# A chunk is retrievable if this tag appears in the chunk's "audience" list
+# (most chunks list one or both — see AUDIENCE_MAP in the indexing notebook).
+ROLE_AUDIENCE = {
+    "Student": "student",
+    "Staff / Faculty": "staff",
 }
