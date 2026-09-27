@@ -1,6 +1,7 @@
 import os
 
-APP_TITLE = "University Knowledge Assistant"
+# src/config.py
+APP_TITLE = "NUTECH_GPT"
 
 # ---- FAISS index location (committed to the repo, produced offline in Colab) ----
 FAISS_INDEX_DIR = "faiss_index"
