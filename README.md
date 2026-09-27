@@ -1,4 +1,4 @@
-# University Knowledge Assistant
+# NUTECH_GPT
 
 A RAG-based Streamlit app that serves two audiences from the same indexed
 document base:
